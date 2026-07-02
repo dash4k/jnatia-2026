@@ -1,2 +1,14 @@
+# Ignore all
+*
+
+# Unignore all with extensions
+!*.*
+
+# Unignore all dirs
+!*/
+
+# Ignore .bmp files
 *.bmp
+
+# Ignore .so files
 *.so
