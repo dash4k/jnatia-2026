@@ -10,6 +10,7 @@ void print_hex(const char *label, const uint8_t *buf, size_t len);
 
 static uint8_t *read_file(const char *path, size_t *out_len);
 static int write_file(const char *path, uint8_t *buf, long size);
+static void clear_lsb(uint8_t *buf, size_t len);
 
 static int encode(const char *in_bmp, const char *out_bmp, const uint8_t *message, size_t msg_len);
 static char *decode(const char *in_bmp, size_t *out_len);
@@ -21,6 +22,7 @@ int main(int argc, char **argv) {
 
     size_t mlen;
     uint8_t *msg = read_file(argv[1], &mlen);
+    clear_lsb(msg, mlen);
 
     printf("Read %zu bytes from %s\n", mlen, argv[1]);
     
@@ -59,6 +61,9 @@ int main(int argc, char **argv) {
     }
     printf("Signature encoded into %s\n\n", argv[2]);
 
+    size_t encoded_mlen;
+    uint8_t *encoded_msg = read_file(argv[2], &encoded_mlen);
+    clear_lsb(encoded_msg, encoded_mlen);
 
     size_t decoded_len;
     uint8_t *decoded_sig = decode(argv[2], &decoded_len);
@@ -77,7 +82,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    int decoded_ok = pqcrystals_dilithium2_ref_verify(decoded_sig, decoded_len, msg, mlen, NULL, 0, pk);
+    int decoded_ok = pqcrystals_dilithium2_ref_verify(decoded_sig, decoded_len, encoded_msg, encoded_mlen, NULL, 0, pk);
     printf("Decoded Signature Verification: %s\n", decoded_ok == 0 ? "Valid" : "Invalid");
 
     print_hex("Decoded Signature", decoded_sig, decoded_len);
@@ -142,6 +147,12 @@ static int write_file(const char *path, uint8_t *buf, long size) {
     fclose(f);
     return 0;
 };
+
+static void clear_lsb(uint8_t *buf, size_t len) {
+    for (size_t i = 0; i < len; i++) {
+        buf[i] &= 0xFE;
+    }
+}
 
 static int encode(const char *in_bmp, const char *out_bmp, const uint8_t *message, size_t msg_len) {
     long size;
