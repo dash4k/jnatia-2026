@@ -12,3 +12,6 @@
 
 # Ignore .so files
 *.so
+
+# Ignore .so files
+*.o
