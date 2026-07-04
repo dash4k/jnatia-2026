@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include "api.h"
+#include "dilithium_ref/api.h"
 
 #define BMP_HEADER_SIZE 54
 
