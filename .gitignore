@@ -9,3 +9,7 @@
 
 # Ignore app executeables
 app
+
+# Ignore data folder
+inputs/
+outputs/

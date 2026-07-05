@@ -2,12 +2,22 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <time.h>
+#include <dirent.h>
+#include <sys/stat.h>
 #include "dilithium_ref/api.h"
 
 #define BMP_HEADER_SIZE 54
+#define MAX_FILENAME 512
 
-void print_hex(const char *label, const uint8_t *buf, size_t len);
+static FILE *log_file = NULL;
 
+static int init_log(const char *log_path);
+static void close_log(void);
+static void log_entry(const char *input_file, const char *output_file, const uint8_t * sig, size_t siglen, int verified);
+static void log_verification(const char *file, size_t decoded_len, int verified);
+
+static int mkdir_if_needed(const char *path);
 static uint8_t *read_file(const char *path, size_t *out_len);
 static int write_file(const char *path, uint8_t *buf, long size);
 static void clear_lsb(uint8_t *buf, size_t len);
@@ -16,89 +26,232 @@ static int encode(const char *in_bmp, const char *out_bmp, const uint8_t *messag
 static char *decode(const char *in_bmp, size_t *out_len);
 
 int main(int argc, char **argv) {
-    if (argc != 2) {
-        fprintf(stderr, "usage: %s <path-to-image>\n", argv[0]);
+    if (argc != 3) {
+        fprintf(stderr, "usage: %s <input-folder> <output-folder>\n", argv[0]);
+    }
+    
+    DIR *dir = opendir(argv[1]);
+    if (!dir) {
+        perror("opendir");
+        return -1;
+    }
+    
+    if (mkdir_if_needed(argv[2]) != 0) {
+        perror("mkdir");
+        closedir(dir);
+        return -1;
     }
 
-    size_t mlen;
-    uint8_t *msg = read_file(argv[1], &mlen);
-    clear_lsb(msg, mlen);
+    char log_path[MAX_FILENAME];
+    snprintf(log_path, sizeof(log_path), "%s/dilithium_log.txt", argv[2]);
 
-    printf("Read %zu bytes from %s\n", mlen, argv[1]);
+    if (init_log(log_path) != 0) {
+        fprintf(stderr, "Failed to create log file\n");
+        return 1;
+    }
+
+    printf("Log file: %s\n\n", log_path);
     
     uint8_t pk[pqcrystals_dilithium2_ref_PUBLICKEYBYTES];
     uint8_t sk[pqcrystals_dilithium2_ref_SECRETKEYBYTES];
-    uint8_t sig[pqcrystals_dilithium2_ref_BYTES];
-    size_t siglen;
-
+    
     if (pqcrystals_dilithium2_ref_keypair(pk, sk)) {
         fprintf(stderr, "keypair generation failed\n");
-        free(msg);
+        closedir(dir);
         return 1;
     }
-
-    if (pqcrystals_dilithium2_ref_signature(sig, &siglen, (const uint8_t*)msg, mlen, NULL, 0, sk)) {
-        fprintf(stderr, "signing failed\n");
-        free(msg);
-        return 1;
-    }
-
-    int ok = pqcrystals_dilithium2_ref_verify(sig, siglen, (const uint8_t*)msg, mlen, NULL, 0, pk);
-    printf("Verification: %s\n", ok == 0 ? "Valid" : "Invalid");
-
-    printf("-----------------------------------------------------------------------------\n");
-    printf("Metadata:\n");
-    print_hex("Public Key", pk, sizeof(pk));
-    print_hex("Secret Key", sk, sizeof(sk));
-    print_hex("Signature", sig, sizeof(sig));
-    printf("Signature Length: %zu\n", siglen);
-    printf("-----------------------------------------------------------------------------\n\n");
-
-    if (encode(argv[1], argv[2], sig, siglen) != 0) {
-        fprintf(stderr, "Encoding failed");
-        free(msg);
-        return 1;
-    }
-    printf("Signature encoded into %s\n\n", argv[2]);
-
-    size_t encoded_mlen;
-    uint8_t *encoded_msg = read_file(argv[2], &encoded_mlen);
-    clear_lsb(encoded_msg, encoded_mlen);
-
-    size_t decoded_len;
-    uint8_t *decoded_sig = decode(argv[2], &decoded_len);
-    if (!decoded_sig) {
-        fprintf(stderr, "Decoding failed\n");
-        free(msg);
-        return 1;
-    }
-
-    printf("Decoded %zu bytes from %s\n", decoded_len, argv[2]);
-
-    if (decoded_len != siglen) {
-        fprintf(stderr, "ERROR: Dedocded signature length mismatch (expected %zu, got %zu)\n", siglen, decoded_len);
-        free(msg);
-        free(decoded_sig);
-        return 1;
-    }
-
-    int decoded_ok = pqcrystals_dilithium2_ref_verify(decoded_sig, decoded_len, encoded_msg, encoded_mlen, NULL, 0, pk);
-    printf("Decoded Signature Verification: %s\n", decoded_ok == 0 ? "Valid" : "Invalid");
-
-    print_hex("Decoded Signature", decoded_sig, decoded_len);
     
-    free(msg);
-    free(decoded_sig);
+    struct dirent *entry;
+    int count = 0;
+    int errors = 0;
+
+    printf("=================================================\n");
+    printf("PHASE 1: Signing and encoding images\n");
+    printf("=================================================\n");
+    
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type != DT_REG || entry->d_name[0] == '.') {
+            continue;
+        }
+
+        const char *ext = strrchr(entry->d_name, '.');
+        if (!ext || strcasecmp(ext, ".bmp") != 0) {
+            continue;
+        }
+        
+        char in_path[MAX_FILENAME];
+        char out_path[MAX_FILENAME];
+        snprintf(in_path, sizeof(in_path), "%s/%s", argv[1], entry->d_name);
+        snprintf(out_path, sizeof(out_path), "%s/output_%d.bmp", argv[2], count);
+
+        printf("\nProcessing: %s\n", entry->d_name);
+
+        size_t mlen;
+        uint8_t *msg = read_file(in_path, &mlen);
+        if (!msg) {
+            fprintf(stderr, " Failed to read file\n");
+            errors++;
+            continue;
+        }
+        clear_lsb(msg, mlen);
+        
+        uint8_t sig[pqcrystals_dilithium2_ref_BYTES];
+        size_t siglen;
+        
+        if (pqcrystals_dilithium2_ref_signature(sig, &siglen, msg, mlen, NULL, 0, sk)) {
+            fprintf(stderr, " Encoding failed\n");
+            free(msg);
+            errors++;
+            continue;
+        }
+
+        int ok = pqcrystals_dilithium2_ref_verify(sig, siglen, (const uint8_t*)msg, mlen, NULL, 0, pk);
+        if (ok != 0) {
+            fprintf(stderr, " Verification failed\n");
+            free(msg);
+            errors++;
+            continue;
+        }
+
+        if (encode(in_path, out_path, sig, siglen) != 0) {
+            fprintf(stderr, " Encoding failed\n");
+            free(msg);
+            errors++;
+            continue;
+        }
+
+        printf(" Signed and encoded\n");
+        log_entry(in_path, out_path, sig, siglen, ok);
+        free(msg);
+        count++;
+    }
+
+    closedir(dir);
+    printf("\nPhase 1 complete: Processed %d files, %d errors\n\n", count, errors);
+    printf("=================================================\n");
+    
+    printf("PHASE 2: Decoding and verifying signatures\n");
+    printf("=================================================\n");
+    
+    dir = opendir(argv[2]);
+    if (!dir) {
+        perror("opendir");
+        return -1;
+    }
+    
+    count = 0;
+    errors = 0;
+    
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type != DT_REG || entry->d_name[0] == '.') {
+            continue;
+        }
+        
+        const char *ext = strrchr(entry->d_name, '.');
+        if (!ext || strcasecmp(ext, ".bmp") != 0) {
+            continue;
+        }
+
+        char in_path[MAX_FILENAME];
+        snprintf(in_path, sizeof(in_path), "%s/%s", argv[2], entry->d_name);
+        
+        printf("\nProcessing: %s\n", entry->d_name);
+        
+        size_t encoded_mlen;
+        uint8_t *encoded_msg = read_file(in_path, &encoded_mlen);
+        if (!encoded_msg) {
+            fprintf(stderr, " Failed to read file\n");
+            errors++;
+            continue;
+        }
+        clear_lsb(encoded_msg, encoded_mlen);
+
+        size_t decoded_len;
+        uint8_t *decoded_sig = decode(in_path, &decoded_len);
+        if (!decoded_sig) {
+            fprintf(stderr, " Decoding failed\n");
+            errors++;
+            continue;
+        }
+        
+        int decoded_ok = pqcrystals_dilithium2_ref_verify(decoded_sig, decoded_len, encoded_msg, encoded_mlen, NULL, 0, pk);
+        if (decoded_ok != 0) {
+            fprintf(stderr, " Verification failed\n");
+            free(encoded_msg);
+            free(decoded_sig);
+            errors++;
+            continue;
+        }
+        
+        printf(" Decoded and verified\n");
+        log_verification(in_path, decoded_len, decoded_ok);
+        free(encoded_msg);
+        free(decoded_sig);
+        count++;
+    }
+    
+    closedir(dir);
+    printf("\nPhase 2 complete: Verified %d files, %d errors\n\n", count, errors);
+    printf("=================================================\n");
+    close_log();
     return 0;
 };
 
-void print_hex(const char *label, const uint8_t *buf, size_t len) {
-    printf("%s: ", label);
-    for (size_t i = 0; i < len; i++) {
-        printf("%02x", buf[i]);
+static int init_log(const char *log_path) {
+    log_file = fopen(log_path, "w");
+    if (!log_file) {
+        perror("fopen (log)");
+        return -1;
     }
-    printf("\n\n");
-};
+
+    time_t now = time(NULL);
+    fprintf(log_file, "=== Dilithium Signature Log ===\n");
+    fprintf(log_file, "Generated: %s\n", ctime(&now));
+    fprintf(log_file, "============================\n\n");
+    fflush(log_file);
+    return 0;
+}
+
+static void close_log(void) {
+    if (log_file) {
+        fprintf(log_file, "\n=== End of Log ===\n");
+        fclose(log_file);
+    }
+}
+
+static void log_entry(const char *input_file, const char *output_file, const uint8_t * sig, size_t siglen, int verified) {
+    if (!log_file) return;
+
+    fprintf(log_file, "Input: %s\n", input_file);
+    fprintf(log_file, "Output: %s\n", output_file);
+    fprintf(log_file, "Signature Size: %zu bytes\n", siglen);
+    fprintf(log_file, "Signature: ");
+    for (size_t i = 0; i < siglen; i++) {
+        fprintf(log_file, "%02x", sig[i]);
+    }
+    fprintf(log_file, "\n");
+    fprintf(log_file, "Verification: %s\n", verified == 0 ? "OK" : "FAILED");
+    fprintf(log_file, "---\n\n");
+    fflush(log_file);
+}
+
+static void log_verification(const char *file, size_t decoded_len, int verified) {
+    if (!log_file) return;
+
+    fprintf(log_file, "File: %s\n", file);
+    fprintf(log_file, "Decoded Signature Size: %zu bytes\n", decoded_len);
+    fprintf(log_file, "Verification: %s\n", verified == 0 ? "OK" : "FAILED");
+    fprintf(log_file, "---\n\n");
+    fflush(log_file);
+}
+
+static int mkdir_if_needed(const char *path) {
+    struct stat st = {0};
+    if (stat(path, &st) == -1) {
+        return mkdir(path, 0700);
+    }
+    return 0;
+}
 
 static uint8_t *read_file(const char *path, size_t *out_len) {
     FILE *f = fopen(path, "rb");
