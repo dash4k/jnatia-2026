@@ -66,6 +66,18 @@ void rsa_sig_key_free(rsa_sig_key_t *key);
 /* Size in bytes of the modulus (== signature length, k in RFC notation). */
 size_t rsa_sig_key_size(const rsa_sig_key_t *key);
 
+/* Export the private key (includes n, e, d, p, q, ...) to PEM in memory.
+ * Caller must free() the returned buffer. */
+rsa_sig_status_t rsa_sig_export_private_pem(const rsa_sig_key_t *key,
+                                             unsigned char **out_pem,
+                                             size_t *out_len);
+
+/* Export just the public key (n, e only) to PEM in memory.
+ * Caller must free() the returned buffer. */
+rsa_sig_status_t rsa_sig_export_public_pem(const rsa_sig_key_t *key,
+                                            unsigned char **out_pem,
+                                            size_t *out_len);
+
 /* --- Sign / verify (RFC 8017 Section 8.2) --- */
 
 /* Sign `msg_len` bytes at `msg` with the private key in `key`.

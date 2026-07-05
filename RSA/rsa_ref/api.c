@@ -227,6 +227,72 @@ size_t rsa_sig_key_size(const rsa_sig_key_t *key)
     return (size_t)EVP_PKEY_get_size(key->pkey); /* k, per RFC 8017 notation */
 }
 
+rsa_sig_status_t rsa_sig_export_private_pem(const rsa_sig_key_t *key,
+                                             unsigned char **out_pem,
+                                             size_t *out_len)
+{
+    if (!key || !key->pkey || !key->has_private || !out_pem || !out_len)
+        return RSA_SIG_ERR_INTERNAL;
+
+    BIO *bio = BIO_new(BIO_s_mem());
+    if (!bio)
+        return RSA_SIG_ERR_ALLOC;
+
+    /* Writes full PKCS#8 PEM: contains n, e, d, p, q, dP, dQ, qInv */
+    if (!PEM_write_bio_PrivateKey(bio, key->pkey, NULL, NULL, 0, NULL, NULL)) {
+        BIO_free(bio);
+        return RSA_SIG_ERR_INTERNAL;
+    }
+
+    char *data;
+    long len = BIO_get_mem_data(bio, &data);
+    unsigned char *buf = malloc(len + 1);
+    if (!buf) {
+        BIO_free(bio);
+        return RSA_SIG_ERR_ALLOC;
+    }
+    memcpy(buf, data, len);
+    buf[len] = '\0';
+
+    BIO_free(bio);
+    *out_pem = buf;
+    *out_len = (size_t)len;
+    return RSA_SIG_OK;
+}
+
+rsa_sig_status_t rsa_sig_export_public_pem(const rsa_sig_key_t *key,
+                                            unsigned char **out_pem,
+                                            size_t *out_len)
+{
+    if (!key || !key->pkey || !out_pem || !out_len)
+        return RSA_SIG_ERR_INTERNAL;
+
+    BIO *bio = BIO_new(BIO_s_mem());
+    if (!bio)
+        return RSA_SIG_ERR_ALLOC;
+
+    /* Writes SubjectPublicKeyInfo PEM: contains n, e only — no d */
+    if (!PEM_write_bio_PUBKEY(bio, key->pkey)) {
+        BIO_free(bio);
+        return RSA_SIG_ERR_INTERNAL;
+    }
+
+    char *data;
+    long len = BIO_get_mem_data(bio, &data);
+    unsigned char *buf = malloc(len + 1);
+    if (!buf) {
+        BIO_free(bio);
+        return RSA_SIG_ERR_ALLOC;
+    }
+    memcpy(buf, data, len);
+    buf[len] = '\0';
+
+    BIO_free(bio);
+    *out_pem = buf;
+    *out_len = (size_t)len;
+    return RSA_SIG_OK;
+}
+
 /* RFC 8017 Section 8.2.1: RSASSA-PKCS1-v1_5-SIGN(K, M)
  *
  * We keep the manual EMSA-PKCS1-v1_5 padding step (for RFC fidelity /
