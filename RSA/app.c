@@ -72,27 +72,29 @@ int main(int argc, char **argv) {
         if (entry->d_type != DT_REG || entry->d_name[0] == '.') {
             continue;
         }
-
-        const char *ext = strrchr(entry->d_name, '.');
-        if (!ext || strcasecmp(ext, ".bmp") != 0) {
-            continue;
-        }
         
         char in_path[MAX_FILENAME];
         char out_path[MAX_FILENAME];
         snprintf(in_path, sizeof(in_path), "%s/%s", argv[1], entry->d_name);
-        snprintf(out_path, sizeof(out_path), "%s/output_%d.bmp", argv[2], count);
+        snprintf(out_path, sizeof(out_path), "%s/rsa_%s", argv[2], entry->d_name);
+
+        if (detect_format(in_path) == IMG_FORMAT_UNKNOWN) {
+            continue;
+        }
 
         printf("\nProcessing: %s\n", entry->d_name);
         
+        size_t file_size;
+        uint8_t *file_message = read_file(in_path, &file_size);
+        free(file_message);
+        
         size_t mlen;
-        uint8_t *msg = read_file(in_path, &mlen);
+        uint8_t *msg = get_canonical_message(in_path, &mlen);
         if (!msg) {
             fprintf(stderr, " Failed to read file\n");
             errors++;
             continue;
         }
-        clear_lsb(msg, mlen);
     
         size_t sig_cap = rsa_sig_key_size(priv_key);
         uint8_t *sig = malloc(sig_cap);
@@ -129,7 +131,7 @@ int main(int argc, char **argv) {
         }
 
         printf(" Signed and encoded\n");
-        log_entry(in_path, out_path, sig, siglen, st == RSA_SIG_OK);
+        log_entry(in_path, out_path, sig, siglen, (st == RSA_SIG_OK ? 0 : 1), file_size);
         free(msg);
         free(sig);
         count++;
@@ -155,25 +157,23 @@ int main(int argc, char **argv) {
         if (entry->d_type != DT_REG || entry->d_name[0] == '.') {
             continue;
         }
-        
-        const char *ext = strrchr(entry->d_name, '.');
-        if (!ext || strcasecmp(ext, ".bmp") != 0) {
-            continue;
-        }
 
         char in_path[MAX_FILENAME];
         snprintf(in_path, sizeof(in_path), "%s/%s", argv[2], entry->d_name);
         
+        if (detect_format(in_path) == IMG_FORMAT_UNKNOWN) {
+            continue;
+        }
+        
         printf("\nProcessing: %s\n", entry->d_name);
 
         size_t encoded_mlen;
-        uint8_t *encoded_msg = read_file(in_path, &encoded_mlen);
+        uint8_t *encoded_msg = get_canonical_message(in_path, &encoded_mlen);
         if (!encoded_msg) {
             fprintf(stderr, "Decoding failed\n");
             errors++;
             continue;
         }
-        clear_lsb(encoded_msg, encoded_mlen);
     
         size_t decoded_len;
         uint8_t *decoded_sig = decode(in_path, &decoded_len);
@@ -194,7 +194,7 @@ int main(int argc, char **argv) {
         }
         
         printf(" Decoded and verified\n");
-        log_verification(in_path, decoded_len, st == RSA_SIG_OK);
+        log_verification(in_path, decoded_len, (st == RSA_SIG_OK ? 0 : 1));
         free(encoded_msg);
         free(decoded_sig);
         count++;
