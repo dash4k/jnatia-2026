@@ -11,4 +11,6 @@ gcc -include ed25519_ref/shims/crypto_namespace.h \
     ed25519_ref/hashblocks/*.c \
     ed25519_ref/verify32/*.c \
     randombytes.c app.c \
+    ../utils/util.o \
+    -I../utils \
     -o app
