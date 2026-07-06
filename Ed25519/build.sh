@@ -13,4 +13,5 @@ gcc -include ed25519_ref/shims/crypto_namespace.h \
     randombytes.c app.c \
     ../utils/util.o \
     -I../utils \
-    -o app
+    -o app \
+    -lm
