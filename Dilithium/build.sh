@@ -1,7 +1,9 @@
 #!/bin/bash
 gcc -DDILITHIUM_MODE=2 \
     -O3 \
+    ../utils/util.o \
     -I dilithium_ref \
+    -I../utils \
     -o app \
     app.c \
     dilithium_ref/sign.c \
