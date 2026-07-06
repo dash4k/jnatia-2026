@@ -6,4 +6,5 @@ gcc app.c \
     -I../utils \
     -o app \
     -lssl \
-    -lcrypto
+    -lcrypto \
+    -lm
