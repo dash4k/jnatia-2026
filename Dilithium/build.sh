@@ -15,4 +15,5 @@ gcc -DDILITHIUM_MODE=2 \
     dilithium_ref/rounding.c \
     dilithium_ref/symmetric-shake.c \
     dilithium_ref/fips202.c \
-    dilithium_ref/randombytes.c
+    dilithium_ref/randombytes.c \
+    -lm
