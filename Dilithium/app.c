@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <dirent.h>
+#include <math.h>
 #include "util.h"
 #include "dilithium_ref/api.h"
 
@@ -103,8 +104,21 @@ int main(int argc, char **argv) {
             continue;
         }
 
+        int w1, h1, c1;
+        uint8_t *original = stbi_load(in_path, &w1, &h1, &c1, 0);
+        
+        int w2, h2, c2;
+        uint8_t *encoded = stbi_load(out_path, &w2, &h2, &c2, 0);
+
+        double psnr = -1.0, ssim = -1.0;
+        if (original && encoded && w1 == w2 && h1 == h2 && c1 == c2) {
+            psnr = calculate_psnr(original, encoded, w1, h1, c1);
+            ssim = calculate_ssim(original, encoded, w1, h1, c1);
+
+        }
+
         printf(" Signed and encoded\n");
-        log_entry(in_path, out_path, sig, siglen, ok, file_size);
+        log_entry(in_path, out_path, sig, siglen, ok, file_size, psnr, ssim);
         free(msg);
         count++;
     }

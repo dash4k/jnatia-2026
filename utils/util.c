@@ -49,7 +49,7 @@ void close_log(void) {
 }
 
 void log_entry(const char *input_file, const char *output_file,
-               const uint8_t *sig, size_t siglen, int verified, size_t mlen) {
+               const uint8_t *sig, size_t siglen, int verified, size_t mlen, double psnr, double ssim) {
     if (!log_file) return;
 
     fprintf(log_file, "Input: %s\n", input_file);
@@ -62,6 +62,8 @@ void log_entry(const char *input_file, const char *output_file,
     }
     fprintf(log_file, "\n");
     fprintf(log_file, "Verification: %s\n", verified == 0 ? "OK" : "FAILED");
+    fprintf(log_file, "SSIM value: %lf\n", ssim);
+    fprintf(log_file, "PSNR value: %lf\n", psnr);
     fprintf(log_file, "---\n\n");
     fflush(log_file);
 }
@@ -361,4 +363,119 @@ uint8_t *get_canonical_message(const char *path, size_t *out_len) {
     }
 
     return NULL;
+}
+
+/* --- Image Quality Metrics --- */
+
+/* PSNR: Peak Signal-to-Noise Ratio
+ * Measures pixel-level difference. Higher is better (typically 20-50 dB for image processing).
+ * Returns -1 if images are identical (infinite PSNR). */
+double calculate_psnr(const uint8_t *original, const uint8_t *modified,
+                      int width, int height, int channels) {
+    if (!original || !modified || width <= 0 || height <= 0 || channels <= 0) {
+        return -1.0;
+    }
+
+    size_t num_pixels = (size_t)width * height * channels;
+    double mse = 0.0;
+    int identical = 1;
+
+    for (size_t i = 0; i < num_pixels; i++) {
+        int diff = (int)original[i] - (int)modified[i];
+        if (diff != 0) identical = 0;
+        mse += diff * diff;
+    }
+
+    if (identical) {
+        return 100.0;  /* Identical images */
+    }
+
+    mse /= num_pixels;
+    if (mse < 1e-10) return 100.0;
+
+    /* PSNR = 20 * log10(MAX_PIXEL_VALUE / sqrt(MSE)) */
+    double psnr = 20.0 * log10(255.0 / sqrt(mse));
+    return psnr;
+}
+
+/* SSIM: Structural Similarity Index
+ * Measures perceived quality including luminance, contrast, structure.
+ * Range: -1 to 1 (1 = identical, 0 = no similarity).
+ * Uses a sliding window approach with Gaussian weighting. */
+double calculate_ssim(const uint8_t *original, const uint8_t *modified,
+                      int width, int height, int channels) {
+    if (!original || !modified || width < 11 || height < 11 || channels <= 0) {
+        return -1.0;
+    }
+
+    /* SSIM constants */
+    const double C1 = 6.5025;   /* (0.01 * 255)^2 */
+    const double C2 = 58.5225;  /* (0.03 * 255)^2 */
+    const int window_size = 11;
+    const double sigma = 1.5;
+
+    /* Build Gaussian kernel (1D, will apply separably) */
+    double kernel[11];
+    double sum = 0.0;
+    for (int i = 0; i < window_size; i++) {
+        int x = i - window_size / 2;
+        kernel[i] = exp(-(x * x) / (2.0 * sigma * sigma));
+        sum += kernel[i];
+    }
+    for (int i = 0; i < window_size; i++) {
+        kernel[i] /= sum;
+    }
+
+    double ssim_sum = 0.0;
+    int num_windows = 0;
+
+    /* Slide window over image (only first channel for simplicity) */
+    /* Slide window over image (full coverage, no stride) */
+    for (int y = 0; y <= height - window_size; y++) {  /* removed += 4 stride */
+        for (int x = 0; x <= width - window_size; x++) {
+            double mu1 = 0.0, mu2 = 0.0;
+            double mu1_sq = 0.0, mu2_sq = 0.0, mu1_mu2 = 0.0;
+            double sigma1_sq = 0.0, sigma2_sq = 0.0, sigma12 = 0.0;
+
+            /* Compute local means and variances */
+            for (int wy = 0; wy < window_size; wy++) {
+                for (int wx = 0; wx < window_size; wx++) {
+                    size_t idx = ((y + wy) * width + (x + wx)) * channels;
+                    double w = kernel[wy] * kernel[wx];
+                    double p1 = original[idx];
+                    double p2 = modified[idx];
+
+                    mu1 += w * p1;
+                    mu2 += w * p2;
+                }
+            }
+
+            for (int wy = 0; wy < window_size; wy++) {
+                for (int wx = 0; wx < window_size; wx++) {
+                    size_t idx = ((y + wy) * width + (x + wx)) * channels;
+                    double w = kernel[wy] * kernel[wx];
+                    double p1 = original[idx];
+                    double p2 = modified[idx];
+
+                    double d1 = p1 - mu1;
+                    double d2 = p2 - mu2;
+
+                    mu1_sq += w * p1 * p1;
+                    mu2_sq += w * p2 * p2;
+                    mu1_mu2 += w * p1 * p2;
+                    sigma1_sq += w * d1 * d1;
+                    sigma2_sq += w * d2 * d2;
+                    sigma12 += w * d1 * d2;
+                }
+            }
+
+            /* SSIM formula */
+            double num = (2.0 * mu1 * mu2 + C1) * (2.0 * sigma12 + C2);
+            double denom = (mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2);
+            ssim_sum += num / denom;
+            num_windows++;
+        }
+    }
+
+    return ssim_sum / num_windows;
 }
