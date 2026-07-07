@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stddef.h>
+#include "stb_image.h"
 
 #define BMP_HEADER_SIZE 54
 #define MAX_FILENAME 512
@@ -25,7 +26,7 @@ typedef enum {
 int  init_log(const char *log_path);
 void close_log(void);
 void log_entry(const char *input_file, const char *output_file,
-               const uint8_t *sig, size_t siglen, int verified, size_t mlen);
+               const uint8_t *sig, size_t siglen, int verified, size_t mlen, double psnr, double ssim);
 void log_verification(const char *file, size_t decoded_len, int verified);
 
 /* --- Filesystem helpers --- */
@@ -45,5 +46,11 @@ char *decode(const char *in_img, size_t *out_len);
 /* Returns a buffer suitable for signing: for BMP, the raw file bytes
  * (LSB-cleared); for PNG, the decoded pixel buffer (LSB-cleared). */
 uint8_t *get_canonical_message(const char *path, size_t *out_len);
+
+/* Image quality metrics */
+double calculate_psnr(const uint8_t *original, const uint8_t *modified, 
+                      int width, int height, int channels);
+double calculate_ssim(const uint8_t *original, const uint8_t *modified,
+                      int width, int height, int channels);
 
 #endif /* UTIL_H */
