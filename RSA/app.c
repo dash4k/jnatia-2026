@@ -10,6 +10,7 @@
 int main(int argc, char **argv) {
     if (argc != 3) {
         fprintf(stderr, "usage: %s <input-folder> <output-folder>\n", argv[0]);
+        return -1;
     }
 
     DIR *dir = opendir(argv[1]);
@@ -23,11 +24,17 @@ int main(int argc, char **argv) {
         closedir(dir);
         return -1;
     }
+    
+    if (mkdir_if_needed("../logs") != 0) {
+        perror("mkdir");
+        closedir(dir);
+        return -1;
+    }
 
     char log_path[MAX_FILENAME];
-    snprintf(log_path, sizeof(log_path), "%s/rsa_log.txt", argv[2]);
+    snprintf(log_path, sizeof(log_path), "../logs/rsa_log_%s.txt", timestampt());
 
-    if (init_log(log_path) != 0) {
+    if (init_log(log_path, "RSA") != 0) {
         fprintf(stderr, "Failed to create log file\n");
         return 1;
     }
@@ -54,13 +61,22 @@ int main(int argc, char **argv) {
 
     rsa_sig_key_t *pub_key = NULL;
     st = rsa_sig_key_from_pem(pub_pem, pub_len, /*is_private=*/0, &pub_key);
-    free(pub_pem);
     if (st != RSA_SIG_OK) {
         fprintf(stderr, "loading pubkey failed: %s\n", rsa_sig_strerror(st));
         rsa_sig_key_free(priv_key);
         return 1;
     }
 
+    unsigned char *priv_pem = NULL;
+    size_t priv_len = 0;
+    rsa_sig_export_private_pem(priv_key, &priv_pem, &priv_len);
+
+    log_key_pem("Public Key", pub_pem, pub_len);
+    log_key_pem("Private Key", priv_pem, priv_len);
+
+    free(priv_pem);
+    free(pub_pem);
+    
     struct dirent *entry;
     int count = 0;
     int errors = 0;

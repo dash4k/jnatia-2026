@@ -10,6 +10,7 @@
 int main(int argc, char **argv) {
     if (argc != 3) {
         fprintf(stderr, "usage: %s <input-folder> <output-folder>\n", argv[0]);
+        return -1;
     }
     
     DIR *dir = opendir(argv[1]);
@@ -23,11 +24,17 @@ int main(int argc, char **argv) {
         closedir(dir);
         return -1;
     }
+    
+    if (mkdir_if_needed("../logs") != 0) {
+        perror("mkdir");
+        closedir(dir);
+        return -1;
+    }
 
     char log_path[MAX_FILENAME];
-    snprintf(log_path, sizeof(log_path), "%s/dilithium_log.txt", argv[2]);
+    snprintf(log_path, sizeof(log_path), "../logs/dilithium_log_%s.txt", timestampt());
 
-    if (init_log(log_path) != 0) {
+    if (init_log(log_path, "Dilithium") != 0) {
         fprintf(stderr, "Failed to create log file\n");
         return 1;
     }
@@ -42,6 +49,9 @@ int main(int argc, char **argv) {
         closedir(dir);
         return 1;
     }
+
+    log_key_hex("Public Key", pk, pqcrystals_dilithium2_ref_PUBLICKEYBYTES);
+    log_key_hex("Secret Key", sk, pqcrystals_dilithium2_ref_SECRETKEYBYTES);
     
     struct dirent *entry;
     int count = 0;
