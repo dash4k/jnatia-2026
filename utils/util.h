@@ -23,7 +23,7 @@ typedef enum {
 } img_format_t;
 
 /* --- Logging --- */
-int  init_log(const char *log_path);
+int  init_log(const char *log_path, const char *algorithm_name);
 void close_log(void);
 void log_entry(const char *input_file, const char *output_file,
                const uint8_t *sig, size_t siglen, int verified, size_t mlen, double psnr, double ssim);
@@ -52,5 +52,12 @@ double calculate_psnr(const uint8_t *original, const uint8_t *modified,
                       int width, int height, int channels);
 double calculate_ssim(const uint8_t *original, const uint8_t *modified,
                       int width, int height, int channels);
+
+/* Logger for keys */
+void log_key_hex(const char *label, const uint8_t *data, size_t len);
+void log_key_pem(const char *label, const unsigned char *pem, size_t len);
+
+/* Timestampt */
+char *timestampt(void);
 
 #endif /* UTIL_H */

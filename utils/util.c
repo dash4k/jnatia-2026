@@ -15,6 +15,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <ctype.h>
+#include <errno.h>
+#include <linux/limits.h>
 #include <sys/stat.h>
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -25,7 +28,7 @@
 /* File-local state: only util.c needs direct access to the log handle. */
 static FILE *log_file = NULL;
 
-int init_log(const char *log_path) {
+int init_log(const char *log_path, const char *algorithm_name) {
     log_file = fopen(log_path, "w");
     if (!log_file) {
         perror("fopen (log)");
@@ -33,7 +36,7 @@ int init_log(const char *log_path) {
     }
 
     time_t now = time(NULL);
-    fprintf(log_file, "=== RSA Signature Log ===\n");
+    fprintf(log_file, "=== %s Signature Log ===\n", algorithm_name);
     fprintf(log_file, "Generated: %s\n", ctime(&now));
     fprintf(log_file, "============================\n\n");
     fflush(log_file);
@@ -79,10 +82,26 @@ void log_verification(const char *file, size_t decoded_len, int verified) {
 }
 
 int mkdir_if_needed(const char *path) {
-    struct stat st = {0};
-    if (stat(path, &st) == -1) {
-        return mkdir(path, 0700);
+    char tmp[PATH_MAX];
+    size_t len;
+
+    snprintf(tmp, sizeof(tmp), "%s", path);
+    len = strlen(tmp);
+    if (len > 0 && tmp[len - 1] == '/')
+        tmp[len - 1] = '\0';
+
+    for (char *p = tmp + 1; *p; p++) {
+        if (*p == '/') {
+            *p = '\0';
+            if (mkdir(tmp, 0700) != 0 && errno != EEXIST)
+                return -1;
+            *p = '/';
+        }
     }
+
+    if (mkdir(tmp, 0700) != 0 && errno != EEXIST)
+        return -1;
+
     return 0;
 }
 
@@ -478,4 +497,38 @@ double calculate_ssim(const uint8_t *original, const uint8_t *modified,
     }
 
     return ssim_sum / num_windows;
+}
+
+/* Generic hex-dump logger for raw binary keys */
+void log_key_hex(const char *label, const uint8_t *data, size_t len) {
+    if (!log_file || !data) return;
+
+    fprintf(log_file, "%s (%zu bytes):\n", label, len);
+    for (size_t i = 0; i < len; i++) {
+        fprintf(log_file, "%02x", data[i]);
+        if ((i + 1) % 32 == 0) fprintf(log_file, "\n");
+    }
+    if (len % 32 != 0) fprintf(log_file, "\n");
+    fprintf(log_file, "\n");
+    fflush(log_file);
+}
+
+/* Logger for PEM-encoded keys */
+void log_key_pem(const char *label, const unsigned char *pem, size_t len) {
+    if (!log_file || !pem) return;
+
+    fprintf(log_file, "%s (%zu bytes):\n", label, len);
+    fwrite(pem, 1, len, log_file);
+    fprintf(log_file, "\n");
+    fflush(log_file);
+}
+
+/* Timestampt */
+char *timestampt(void) {
+    static char buf[64];
+    time_t now = time(NULL);
+    struct tm *tm_info = localtime(&now);
+
+    strftime(buf, sizeof(buf), "%Y-%m-%d_%H:%M:%S", tm_info);
+    return buf;
 }
