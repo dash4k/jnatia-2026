@@ -4,12 +4,7 @@
   <a href="https://ejournal2.unud.ac.id/index.php/jnatia/en">
     <img width="4000" height="400" alt="pageHeaderLogoImage_en" src="https://github.com/user-attachments/assets/da25d3de-2d7c-4eca-bd8f-364de7eabc82" />
   </a>
-
-  <p align="center">
-    Scripts for a comparative study measuring the visual-quality cost (PSNR, SSIM) of embedding RSA, Ed25519, and CRYSTALS-Dilithium digital signatures into PNG game sprites using LSB steganography.
-    <br/>
-    <!-- <a href="https://ejournal2.unud.ac.id/index.php/jnatia/en"><strong>Read the paper »</strong></a> -->
-  </p>
+  <!-- <a href="https://ejournal2.unud.ac.id/index.php/jnatia/en"><strong>Read the paper »</strong></a> -->
 </div>
 
 ## About The Project
@@ -48,19 +43,24 @@ Quality metrics are measured using:
    cd jnatia-2026
    ```
 
-2. **Compile Utility Functions**
+2. **Create inputs/ folder and add images dataset**
+   ```sh
+   mkdir inputs
+   ```
+
+3. **Compile Utility Functions**
    ```sh
    cd utils/
    gcc -c util.c -o util.o
    cd ..
    ```
 
-3. **Build Algorithms**
+4. **Build Algorithms**
    ```sh
    make build
    ```
 
-4. **Run Algorithms**
+5. **Run Algorithms**
    ```sh
    make run
    ```
@@ -84,13 +84,17 @@ The comparative analysis produces output metrics for each signature algorithm, a
 - Visual quality preservation
 - Embedding efficiency
 
+## Datasets
+
+The image dataset used in this project is archived on Zenodo: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21618786.svg)](https://doi.org/10.5281/zenodo.21618786)
+
 ## License
 
 This project is part of academic research. For licensing details, please refer to the paper publication.
 
 ## Authors
 
-- dash4k
+- Danishwara Pracheta (dash4k)
 
 ## Acknowledgments
 
