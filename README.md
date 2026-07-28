@@ -86,7 +86,7 @@ The comparative analysis produces output metrics for each signature algorithm, a
 
 ## Datasets
 
-The image dataset used in this project is archived on Zenodo: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21618786.svg)](https://doi.org/10.5281/zenodo.21618786)
+The image dataset used in this project is archived on Zenodo: [[10.5281/zenodo.21618786]](https://doi.org/10.5281/zenodo.21618786)
 
 ## License
 
