@@ -1,7 +1,7 @@
 </br>
 <div align="center">
-  <a href="https://www.unud.ac.id/">
-    <img src="https://github.com/dash4k/tugas-akhir-alpro-1/assets/133938416/ff71757a-1b51-44b7-b14e-b53b061d9815" alt="Logo" width="230" height="259">
+  <a href="https://ejournal2.unud.ac.id/index.php/jnatia/en">
+    <img width="4000" height="400" alt="pageHeaderLogoImage_en" src="https://github.com/user-attachments/assets/da25d3de-2d7c-4eca-bd8f-364de7eabc82" />
   </a>
 
 <h1 align="center">Perbandingan Kualitas Visual Penyisipan Digital Signature Standards pada Game Sprite (PNG) Menggunakan Metode LSB Steganography</h1>
