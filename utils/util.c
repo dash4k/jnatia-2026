@@ -1,5 +1,5 @@
 /*
- * util.c
+* util.c
  *
  * Implementation of shared logging, file I/O, and LSB
  * steganography utilities declared in util.h.
@@ -20,6 +20,7 @@
 #include <linux/limits.h>
 #include <sys/stat.h>
 
+#define PSNR_MAX_DB 100.0
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -388,7 +389,9 @@ uint8_t *get_canonical_message(const char *path, size_t *out_len) {
 
 /* PSNR: Peak Signal-to-Noise Ratio
  * Measures pixel-level difference. Higher is better (typically 20-50 dB for image processing).
- * Returns -1 if images are identical (infinite PSNR). */
+ * Returns -1.0 if inputs are invalid (null pointers or non-positive dimensions).
+ * Returns PSNR_MAX_DB if images are identical (true PSNR would be infinite). */
+
 double calculate_psnr(const uint8_t *original, const uint8_t *modified,
                       int width, int height, int channels) {
     if (!original || !modified || width <= 0 || height <= 0 || channels <= 0) {
@@ -406,11 +409,11 @@ double calculate_psnr(const uint8_t *original, const uint8_t *modified,
     }
 
     if (identical) {
-        return 100.0;  /* Identical images */
+        return PSNR_MAX_DB;  /* Identical images: true PSNR is infinite, capped by convention */
     }
 
     mse /= num_pixels;
-    if (mse < 1e-10) return 100.0;
+    if (mse < 1e-10) return PSNR_MAX_DB;
 
     /* PSNR = 20 * log10(MAX_PIXEL_VALUE / sqrt(MSE)) */
     double psnr = 20.0 * log10(255.0 / sqrt(mse));
@@ -427,13 +430,11 @@ double calculate_ssim(const uint8_t *original, const uint8_t *modified,
         return -1.0;
     }
 
-    /* SSIM constants */
-    const double C1 = 6.5025;   /* (0.01 * 255)^2 */
-    const double C2 = 58.5225;  /* (0.03 * 255)^2 */
+    const double C1 = 6.5025;
+    const double C2 = 58.5225;
     const int window_size = 11;
     const double sigma = 1.5;
 
-    /* Build Gaussian kernel (1D, will apply separably) */
     double kernel[11];
     double sum = 0.0;
     for (int i = 0; i < window_size; i++) {
@@ -448,24 +449,19 @@ double calculate_ssim(const uint8_t *original, const uint8_t *modified,
     double ssim_sum = 0.0;
     int num_windows = 0;
 
-    /* Slide window over image (only first channel for simplicity) */
-    /* Slide window over image (full coverage, no stride) */
-    for (int y = 0; y <= height - window_size; y++) {  /* removed += 4 stride */
+    /* NOTE: only the first channel is sampled per window (idx uses channel offset 0).
+     * For multi-channel images this computes single-channel SSIM, not a full-color metric. */
+    for (int y = 0; y <= height - window_size; y++) {
         for (int x = 0; x <= width - window_size; x++) {
             double mu1 = 0.0, mu2 = 0.0;
-            double mu1_sq = 0.0, mu2_sq = 0.0, mu1_mu2 = 0.0;
             double sigma1_sq = 0.0, sigma2_sq = 0.0, sigma12 = 0.0;
 
-            /* Compute local means and variances */
             for (int wy = 0; wy < window_size; wy++) {
                 for (int wx = 0; wx < window_size; wx++) {
                     size_t idx = ((y + wy) * width + (x + wx)) * channels;
                     double w = kernel[wy] * kernel[wx];
-                    double p1 = original[idx];
-                    double p2 = modified[idx];
-
-                    mu1 += w * p1;
-                    mu2 += w * p2;
+                    mu1 += w * original[idx];
+                    mu2 += w * modified[idx];
                 }
             }
 
@@ -479,18 +475,14 @@ double calculate_ssim(const uint8_t *original, const uint8_t *modified,
                     double d1 = p1 - mu1;
                     double d2 = p2 - mu2;
 
-                    mu1_sq += w * p1 * p1;
-                    mu2_sq += w * p2 * p2;
-                    mu1_mu2 += w * p1 * p2;
                     sigma1_sq += w * d1 * d1;
                     sigma2_sq += w * d2 * d2;
                     sigma12 += w * d1 * d2;
                 }
             }
 
-            /* SSIM formula */
             double num = (2.0 * mu1 * mu2 + C1) * (2.0 * sigma12 + C2);
-            double denom = (mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2);
+            double denom = (mu1 * mu1 + mu2 * mu2 + C1) * (sigma1_sq + sigma2_sq + C2);
             ssim_sum += num / denom;
             num_windows++;
         }
