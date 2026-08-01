@@ -1,10 +1,9 @@
-# Perbandingan Kualitas Visual Penyisipan Digital Signature Standards pada Game Sprite (PNG) Menggunakan Metode LSB Steganography
+# Perbandingan Kualitas Visual Penyisipan Digital Signature Standards pada Game Sprites Menggunakan LSB
 
 <div align="center">
   <a href="https://ejournal2.unud.ac.id/index.php/jnatia/en">
     <img width="4000" height="400" alt="pageHeaderLogoImage_en" src="https://github.com/user-attachments/assets/da25d3de-2d7c-4eca-bd8f-364de7eabc82" />
   </a>
-  <!-- <a href="https://ejournal2.unud.ac.id/index.php/jnatia/en"><strong>Read the paper »</strong></a> -->
 </div>
 
 ## About The Project
@@ -18,14 +17,6 @@ This repository contains the implementation of a comparative study on digital si
 Quality metrics are measured using:
 - **PSNR** (Peak Signal-to-Noise Ratio)
 - **SSIM** (Structural Similarity Index)
-
-## Tech Stack
-
-- **C** (69.9%) - Core algorithms and utility functions
-- **C++** (24.2%) - High-level implementations
-- **Python** (4.6%) - Analysis and visualization scripts
-- **Makefile** (0.5%) - Build automation
-- **Shell** (0.2%) - Utility scripts
 
 ## Build from Source
 
@@ -69,9 +60,14 @@ Quality metrics are measured using:
 
 ```
 jnatia-2026/
+├── Dilithium/       # CRYSTALS-Dilithium source code
+├── Ed25519/         # Ed25519 source code
+├── inputs/          # Test data
+├── logs/            # Test logs
+├── outputs/         # Test results
+├── RSA/             # RSA source code
 ├── utils/           # Utility functions and helpers
-├── src/             # Core source code
-├── data/            # Test data and results
+├── .gitignore       # Git ignore rules
 ├── Makefile         # Build configuration
 └── README.md        # This file
 ```
@@ -103,4 +99,4 @@ This project is part of academic research. For licensing details, please refer t
 
 ---
 
-*Last updated: 2026-07-28*
+*Last updated: 2026-08-01*
