@@ -161,7 +161,7 @@ int main(int argc, char **argv) {
         }
 
         printf(" Signed and encoded\n");
-        log_entry(in_path, out_path, sig, siglen, (st == RSA_SIG_OK ? 0 : 1), file_size, ssim, psnr);
+        log_entry(in_path, out_path, sig, siglen, (st == RSA_SIG_OK ? 0 : 1), file_size, psnr, ssim);
         free(msg);
         free(sig);
         count++;
