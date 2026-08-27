@@ -1,4 +1,4 @@
-# Perbandingan Kualitas Visual Penyisipan Digital Signature Standards pada Game Sprites Menggunakan LSB
+# Perbandingan Visual Watermarking Digital Signature CRYSTALS-Dilitihium, Ed25519, dan RSA Terhadap Game Skin
 
 <div align="center">
   <a href="https://ejournal2.unud.ac.id/index.php/jnatia/en">
