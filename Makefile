@@ -6,9 +6,12 @@ ALGOS := Dilithium Ed25519 RSA
 
 all: build run
 
-build: build-dilithium build-ed25519 build-rsa
+build: build-utils build-dilithium build-ed25519 build-rsa
 
 run: run-dilithium run-ed25519 run-rsa
+
+build-utils:
+	cd utils && gcc -c util.c -o util.o
 
 build-dilithium:
 	cd Dilithium && ./build.sh
@@ -29,4 +32,4 @@ run-rsa: build-rsa
 	cd RSA && ./app ../inputs ../outputs/rsa
 
 clean:
-	rm -f Dilithium/app Ed25519/app RSA/app
+	rm -f Dilithium/app Ed25519/app RSA/app utils/util.o && rm -rf logs/ outputs/

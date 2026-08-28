@@ -148,15 +148,17 @@ int main(int argc, char **argv) {
         }
 
         int w1, h1, c1;
-        uint8_t *original = stbi_load(in_path, &w1, &h1, &c1, 0);
+        const int forced_c1 = 3;
+        uint8_t *original = stbi_load(in_path, &w1, &h1, &c1, forced_c1);
         
         int w2, h2, c2;
-        uint8_t *encoded = stbi_load(out_path, &w2, &h2, &c2, 0);
+        const int forced_c2 = 3;
+        uint8_t *encoded = stbi_load(out_path, &w2, &h2, &c2, forced_c2);
 
         double psnr = -1.0, ssim = -1.0;
-        if (original && encoded && w1 == w2 && h1 == h2 && c1 == c2) {
-            psnr = calculate_psnr(original, encoded, w1, h1, c1);
-            ssim = calculate_ssim(original, encoded, w1, h1, c1);
+        if (original && encoded && w1 == w2 && h1 == h2 && forced_c1 == forced_c2) {
+            psnr = calculate_psnr(original, encoded, w1, h1, forced_c1);
+            ssim = calculate_ssim(original, encoded, w1, h1, forced_c1);
 
         }
 
