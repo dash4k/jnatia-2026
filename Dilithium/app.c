@@ -130,7 +130,7 @@ int main(int argc, char **argv) {
         }
 
         printf(" Signed and encoded\n");
-        log_entry(in_path, out_path, sig, siglen, ok, file_size, psnr, ssim);
+        log_entry(in_path, out_path, sig, siglen, ok, mlen, file_size, psnr, ssim);
         free(msg);
         count++;
     }
