@@ -26,7 +26,7 @@ typedef enum {
 int  init_log(const char *log_path, const char *algorithm_name);
 void close_log(void);
 void log_entry(const char *input_file, const char *output_file,
-               const uint8_t *sig, size_t siglen, int verified, size_t mlen, double psnr, double ssim);
+               const uint8_t *sig, size_t siglen, int verified, size_t mlen, size_t file_size, double psnr, double ssim);
 void log_verification(const char *file, size_t decoded_len, int verified);
 
 /* --- Filesystem helpers --- */

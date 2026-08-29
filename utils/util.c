@@ -53,12 +53,13 @@ void close_log(void) {
 }
 
 void log_entry(const char *input_file, const char *output_file,
-               const uint8_t *sig, size_t siglen, int verified, size_t mlen, double psnr, double ssim) {
+               const uint8_t *sig, size_t siglen, int verified, size_t mlen, size_t file_size, double psnr, double ssim) {
     if (!log_file) return;
 
     fprintf(log_file, "Input: %s\n", input_file);
     fprintf(log_file, "Output: %s\n", output_file);
     fprintf(log_file, "Message Size: %zu bytes\n", mlen);
+    fprintf(log_file, "File Size: %zu bytes\n", file_size);
     fprintf(log_file, "Signature Size: %zu bytes\n", siglen);
     fprintf(log_file, "Signature: ");
     for (size_t i = 0; i < siglen; i++) {
